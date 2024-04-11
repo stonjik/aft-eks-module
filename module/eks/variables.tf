@@ -7,11 +7,6 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "availability_zones" {
-  description = "Availability zones to create subnets in"
-  type        = list(string)
-}
-
 ################################################################################
 # EKS 
 ################################################################################
@@ -96,6 +91,11 @@ variable "aws_load_balancer_controller_sa" {
   default     = "aws-load-balancer-controller"
 }
 
+variable "ebs_policy" {
+  description = "AmazonEBSCSIDriverPolicy managed policy"
+  default = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
 ################################################################################
 # VPC Networking
 ################################################################################
@@ -140,12 +140,12 @@ variable "eks_private_rt" {
 variable "cidr_blocks_public" {
   description = "CIDR blocks for the public subnets"
   type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
+  default     = ["172.31.96.0/20", "172.31.112.0/20"]
 }
 
 variable "cidr_blocks_private" {
   description = "CIDR blocks for the private subnets"
   type        = list(string)
-  default     = ["10.0.3.0/24", "10.0.4.0/24"]
+  default     = ["172.31.128.0/20", "172.31.144.0/20"]
 }
 

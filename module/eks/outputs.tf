@@ -58,7 +58,3 @@ output "cluster_service_account_role_arn" {
   description = "The ARN of the IAM role for the cluster autoscaler service account"
 }
 
-output "load_balancer_controller_role_arn" {
-  value = module.lb_role.arn
-  description = "The ARN of the IAM role for the AWS Load Balancer Controller"
-}

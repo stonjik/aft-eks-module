@@ -2,6 +2,8 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-data "aws_iam_policy" "ebs_csi_policy" {
-  arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+data "aws_eks_cluster_auth" "this" {
+  name = module.eks.cluster_name
 }
+
+data "aws_caller_identity" "current" {}

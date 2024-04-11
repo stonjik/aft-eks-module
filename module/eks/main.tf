@@ -19,7 +19,7 @@ locals {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
+  version = "~> 20.0"
 
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
@@ -59,7 +59,7 @@ module "eks" {
       labels                       = var.node_group_labels
       instance_types               = var.instance_types
       capacity_type                = var.capacity_type
-      iam_role_additional_policies = { AmazonEBSCSIDriverPolicy = data.aws_iam_policy.ebs_csi_policy.arn }
+      iam_role_additional_policies = { AmazonEBSCSIDriverPolicy = var.ebs_policy }
     }
 
   }
@@ -72,7 +72,7 @@ module "eks" {
 ################################################################################
 
 resource "aws_iam_policy" "cluster_autoscaler" {
-  name        = "eks-cluster-autoscaler"
+  name        = "eks-cluster-autoscalerv2"
   description = "Allows EKS Cluster Autoscaler to modify ASGs"
 
   policy = jsonencode({
@@ -84,9 +84,15 @@ resource "aws_iam_policy" "cluster_autoscaler" {
           "autoscaling:DescribeAutoScalingGroups",
           "autoscaling:DescribeAutoScalingInstances",
           "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeScalingActivities",
           "autoscaling:DescribeTags",
           "autoscaling:SetDesiredCapacity",
           "autoscaling:TerminateInstanceInAutoScalingGroup",
+          "ec2:DescribeImages",
+          "ec2:DescribeInstanceTypes",
+          "ec2:DescribeLaunchTemplateVersions",
+          "ec2:GetInstanceTypesFromInstanceRequirements",
+          "eks:DescribeNodegroup"
         ],
         Resource = "*"
       },
@@ -103,12 +109,13 @@ resource "aws_iam_role" "cluster_autoscaler" {
       {
         Effect    = "Allow",
         Principal = {
-          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/oidc.eks.${var.region}.amazonaws.com/id/${module.eks.cluster_oidc_issuer_url}"
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}"
         },
         Action   = "sts:AssumeRoleWithWebIdentity",
         Condition = {
           StringEquals = {
-            "${module.eks.cluster_oidc_issuer_url}:sub" = "system:serviceaccount:kube-system:cluster-autoscaler"
+            "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:aud" = "sts.amazonaws.com",
+            "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:cluster-autoscaler-aws-cluster-autoscaler"
           }
         }
       },
@@ -150,7 +157,7 @@ resource "kubernetes_service_account" "service-account" {
         "app.kubernetes.io/component"= "controller"
     }
     annotations = {
-      "eks.amazonaws.com/role-arn" = module.lb_role.arn
+      "eks.amazonaws.com/role-arn" = module.lb_role.iam_role_arn
       "eks.amazonaws.com/sts-regional-endpoints" = "true"
     }
   }
@@ -178,9 +185,10 @@ resource "helm_release" "cluster_autoscaler" {
   }
 
   set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
     value = aws_iam_role.cluster_autoscaler.arn
   }
+
 }
 
 
